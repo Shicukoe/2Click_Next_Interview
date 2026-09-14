@@ -11,8 +11,7 @@ from zoneinfo import ZoneInfo
 
 from psycopg.types.json import Jsonb
 
-from app import policy
-from app import stand_in_model as model
+from app import policy, stand_in_model
 
 ROME = ZoneInfo("Europe/Rome")
 MAX_ROUNDS = 3
@@ -85,16 +84,18 @@ def preparer_write_brief(facts, activity, review):
     else:
         findings = review["findings"]
         proposed, basis = policy.required_action(findings), "revised to follow the checker's findings"
-    return {"summary": model.brief_summary(facts, activity), "proposed_outcome": proposed,
-            "proposal": model.proposal_text(proposed, findings), "basis": basis}
+    return {"summary": stand_in_model.brief_summary(facts, activity), "proposed_outcome": proposed,
+            "proposal": stand_in_model.proposal_text(proposed, findings), "basis": basis}
 
 
 def checker_review(facts, brief):
     """Checker: test the proposal against the policy. Lists findings and objects; decides nothing."""
-    findings = [f | {"message": model.finding_text(f, facts)} for f in policy.evaluate(facts)]
+    findings = [f | {"message": stand_in_model.finding_text(f, facts),
+                     "summary": stand_in_model.finding_summary(f, facts)}
+                for f in policy.evaluate(facts)]
     required = policy.required_action(findings)
     objections = [] if brief["proposed_outcome"] == required else [
-        model.objection_text(brief["proposed_outcome"], required)
+        stand_in_model.objection_text(brief["proposed_outcome"], required)
     ]
     return {"findings": findings, "objections": objections}
 
@@ -104,9 +105,11 @@ def coordinator_decide(brief, review, round_no):
     if review["objections"] and round_no < MAX_ROUNDS:
         return {"decision": "continue", "reason": "The checker objected, so the preparer revises the proposal."}
     if review["objections"]:
-        return {"decision": "stop", "outcome": policy.BLOCKED, "reason": model.no_agreement_text(MAX_ROUNDS)}
+        return {"decision": "stop", "outcome": policy.BLOCKED,
+                "reason": stand_in_model.no_agreement_text(MAX_ROUNDS)}
     outcome = brief["proposed_outcome"]
-    return {"decision": "stop", "outcome": outcome, "reason": model.reason_text(outcome, review["findings"])}
+    return {"decision": "stop", "outcome": outcome,
+            "reason": stand_in_model.reason_text(outcome, review["findings"])}
 
 
 # ── Loop and saving ───────────────────────────────────────────────────────────

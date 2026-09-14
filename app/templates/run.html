@@ -1,31 +1,58 @@
 {% extends "base.html" %}
-{% block title %}{{ run.opportunity_code }} run #{{ run.run_number }}{% endblock %}
+{% block title %}{{ run.opportunity_code }} run #{{ run.run_number }} · Exhibition Sales CRM{% endblock %}
 {% block content %}
-<h1><a href="{{ url_for('opportunity', code=run.opportunity_code) }}">{{ run.opportunity_code }}</a> · assistant run #{{ run.run_number }}</h1>
-<p><span class="badge {{ run.outcome }}">{{ run.outcome }}</span> {{ run.reason }}</p>
-<p class="muted">{{ run.created_at.strftime('%d/%m/%Y %H:%M') }} · policy version {{ run.policy_version }} ·
-  role wording comes from a deterministic local stand-in model, not a language model.</p>
+<div class="crumb"><a href="{{ url_for('search') }}">Exhibitors</a> / <a href="{{ url_for('opportunity', code=run.opportunity_code) }}">{{ run.opportunity_code }}</a> / run #{{ run.run_number }}</div>
+<h1>Technical handoff · run #{{ run.run_number }}</h1>
+<p class="subtitle">{{ run.created_at.strftime('%d/%m/%Y %H:%M') }} · policy version {{ run.policy_version }} · {{ run.rounds|length }} round{{ 's' if run.rounds|length > 1 }}</p>
+
+<section class="card">
+  <div class="round-head">
+    <h2>Outcome</h2>
+    <span class="badge {{ run.outcome }}">{{ run.outcome }}</span>
+  </div>
+  <p style="margin: 0 0 .8rem">{{ run.reason }}</p>
+  <span class="stand-in">Role wording comes from a deterministic local stand-in model, not a language model. No API calls.</span>
+</section>
+
+<section class="card">
+  <h2>Brief written by the Preparer</h2>
+  <ul>{% for line in run.rounds[0].preparer.summary %}<li>{{ line }}</li>{% endfor %}</ul>
+</section>
 
 {% for r in run.rounds %}
-<h2>Round {{ r.round }}</h2>
+<section class="card">
+  <div class="round-head">
+    <h2>Round {{ r.round }}</h2>
+    <span class="badge neutral">{{ r.coordinator.decision }}</span>
+  </div>
 
-<h3>Preparer</h3>
-<ul>{% for line in r.preparer.summary %}<li>{{ line }}</li>{% endfor %}</ul>
-<p><strong>Proposed next step:</strong> {{ r.preparer.proposal }} <span class="muted">({{ r.preparer.basis }})</span></p>
+  <div class="role">
+    <h3>Preparer proposes</h3>
+    <p>{{ r.preparer.proposal }}</p>
+    <p class="muted">{{ r.preparer.basis }}</p>
+  </div>
 
-<h3>Checker</h3>
-{% if r.checker.findings %}
-<ul>{% for f in r.checker.findings %}
-  <li><strong>{{ f.kind }}{% if f.blocks %}, blocks handoff{% endif %}:</strong> {{ f.message }}</li>
-{% endfor %}</ul>
-{% else %}<p>No findings.</p>{% endif %}
-<p><strong>{% if r.checker.objections %}Objection:</strong> {{ r.checker.objections | join(' ') }}{% else %}No objection</strong> to the proposal.{% endif %}</p>
+  <div class="role">
+    <h3>Checker finds</h3>
+    {% if r.checker.findings %}
+    <ul>{% for f in r.checker.findings %}
+      <li><span class="badge {{ 'blocked' if f.blocks else 'provisional' }}">{{ f.kind }}{{ ', blocks' if f.blocks }}</span> {{ f.message }}</li>
+    {% endfor %}</ul>
+    {% else %}<p>No findings.</p>{% endif %}
+    <p>{% if r.checker.objections %}<strong>Objection:</strong> {{ r.checker.objections|join(' ') }}{% else %}No objection to the proposal.{% endif %}</p>
+  </div>
 
-<h3>Coordinator</h3>
-<p><strong>{{ r.coordinator.decision }}{% if r.coordinator.outcome %} · {{ r.coordinator.outcome }}{% endif %}:</strong> {{ r.coordinator.reason }}</p>
+  <div class="role">
+    <h3>Coordinator decides</h3>
+    <p><strong>{{ r.coordinator.decision }}{% if r.coordinator.outcome %} · {{ r.coordinator.outcome }}{% endif %}.</strong> {{ r.coordinator.reason }}</p>
+  </div>
+</section>
 {% endfor %}
 
-<h2>Information used</h2>
-<p class="muted">Every lookup the Preparer made, with exactly what it returned.</p>
-<pre>{{ snapshot }}</pre>
+<section class="card">
+  <details>
+    <summary>Information used: every lookup the Preparer made, with what it returned</summary>
+    <pre>{{ snapshot }}</pre>
+  </details>
+</section>
 {% endblock %}

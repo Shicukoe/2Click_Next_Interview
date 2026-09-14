@@ -3,26 +3,111 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Exhibition sales CRM{% endblock %}</title>
+<title>{% block title %}Exhibition Sales CRM{% endblock %}</title>
 <style>
-  body { font: 15px/1.5 system-ui, sans-serif; max-width: 960px; margin: 0 auto; padding: 1rem; color: #1a1a1a; }
-  a { color: #0b5cad; }
-  table { border-collapse: collapse; width: 100%; margin-bottom: 1rem; }
-  th, td { text-align: left; padding: .35rem .5rem; border-bottom: 1px solid #ddd; vertical-align: top; }
-  th { width: 11rem; font-weight: 600; }
-  label { display: block; margin: .5rem 0; }
-  input, textarea, button { font: inherit; }
-  textarea { width: 100%; box-sizing: border-box; }
-  .badge { padding: .1rem .45rem; border-radius: 4px; font-weight: 600; }
-  .ready { background: #d7f0dc; } .provisional { background: #fff0bf; } .blocked { background: #f7d6d6; }
-  .notice { background: #fff0bf; padding: .5rem .75rem; border-radius: 4px; }
-  .error { background: #f7d6d6; padding: .5rem .75rem; border-radius: 4px; }
-  .muted { color: #666; font-size: .9em; }
-  pre { background: #f4f4f4; padding: .75rem; overflow-x: auto; font-size: .85em; }
+  :root {
+    --navy: #0b2545; --blue: #1d4ed8; --blue-dark: #1e40af; --blue-soft: #eff6ff; --blue-line: #bfdbfe;
+    --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --page: #f4f7fb; --card: #ffffff;
+    --green: #047857; --green-soft: #d1fae5; --amber: #92400e; --amber-soft: #fef3c7; --red: #b91c1c; --red-soft: #fee2e2;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--page); }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header { background: var(--navy); }
+  .bar { max-width: 1120px; margin: 0 auto; padding: 0 1.25rem; display: flex; align-items: center; gap: 2.5rem; height: 56px; }
+  .brand { color: #fff; font-weight: 700; letter-spacing: .2px; }
+  .brand span { color: #93c5fd; font-weight: 500; }
+  nav { display: flex; gap: 1.5rem; height: 100%; }
+  nav a { color: #cbd5e1; display: flex; align-items: center; border-bottom: 3px solid transparent; padding-top: 3px; }
+  nav a:hover { color: #fff; text-decoration: none; }
+  nav a.active { color: #fff; border-bottom-color: #60a5fa; }
+
+  main { max-width: 1120px; margin: 0 auto; padding: 1.75rem 1.25rem 3rem; }
+  h1 { font-size: 1.55rem; margin: 0 0 .2rem; color: var(--navy); }
+  h2 { font-size: 1rem; margin: 0 0 .8rem; color: var(--navy); }
+  h3 { font-size: .95rem; margin: 1rem 0 .5rem; }
+  h2 .muted, h3 .muted { font-weight: 400; }
+  .crumb { font-size: .85rem; color: var(--muted); margin-bottom: .35rem; }
+  .subtitle { color: var(--muted); margin: 0 0 1.4rem; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 1.1rem 1.3rem; margin-bottom: 1.1rem; box-shadow: 0 1px 2px rgba(15, 23, 42, .05);
+          min-width: 0; overflow-x: auto; }  /* a wide table scrolls inside its card on a phone, never the page */
+  .grid { display: grid; gap: 1.1rem; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); align-items: start; }
+  .grid > .card { margin-bottom: 0; }
+  .stack > * + * { margin-top: 1.1rem; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: .45rem .6rem; border-bottom: 1px solid var(--line); }
+  td { padding: .6rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #f8fafc; }
+  tr.group td { background: var(--blue-soft); color: var(--navy); font-weight: 600; border-bottom-color: var(--blue-line); }
+  tr.group:hover td { background: var(--blue-soft); }
+  .nowrap { white-space: nowrap; }
+
+  dl.facts { display: grid; grid-template-columns: 10rem 1fr; gap: .45rem 1rem; margin: 0; }
+  dl.facts dt { color: var(--muted); }
+  dl.facts dd { margin: 0; }
+
+  .badge { display: inline-block; padding: .08rem .6rem; border-radius: 999px; font-size: .78rem; font-weight: 600; }
+  .badge.ready { background: var(--green-soft); color: var(--green); }
+  .badge.provisional { background: var(--amber-soft); color: var(--amber); }
+  .badge.blocked { background: var(--red-soft); color: var(--red); }
+  .badge.neutral { background: var(--blue-soft); color: var(--blue-dark); }
+  .overdue { color: var(--red); font-weight: 600; }
+
+  .alert { border-radius: 8px; padding: .7rem 1rem; margin-bottom: 1.1rem; }
+  .alert.error { background: var(--red-soft); color: var(--red); }
+  .alert.warn { background: var(--amber-soft); color: var(--amber); }
+  .alert.info { background: var(--blue-soft); color: var(--blue-dark); }
+
+  label { display: block; font-size: .82rem; font-weight: 600; color: var(--muted); margin-bottom: .75rem; }
+  input, select, textarea { display: block; width: 100%; margin-top: .3rem; font: inherit; font-weight: 400; color: var(--ink); padding: .5rem .65rem; border: 1px solid #cbd5e1; border-radius: 6px; background: #fff; }
+  input:focus, select:focus, textarea:focus { outline: 3px solid var(--blue-line); border-color: var(--blue); }
+  .hint { font-weight: 400; color: var(--muted); }
+  .fields { display: grid; gap: 0 1rem; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); }
+
+  .btn { display: inline-block; font: inherit; font-weight: 600; padding: .5rem 1.05rem; border-radius: 6px; border: 1px solid var(--blue); background: var(--blue); color: #fff; cursor: pointer; }
+  .btn:hover { background: var(--blue-dark); border-color: var(--blue-dark); text-decoration: none; }
+  .btn.secondary { background: #fff; color: var(--blue); }
+  .btn.secondary:hover { background: var(--blue-soft); }
+  .btn.small { padding: .15rem .6rem; font-size: .8rem; }
+  form.inline { display: inline; }
+
+  .searchbar { display: flex; gap: .6rem; }
+  .searchbar input { margin: 0; font-size: 1.05rem; padding: .7rem .9rem; }
+  .tabs { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .tabs a { padding: .35rem .9rem; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink); }
+  .tabs a.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .toolbar form { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+  .toolbar select, .toolbar input { margin: 0; width: auto; }
+
+  .muted { color: var(--muted); font-size: .88rem; }
+  .stand-in { display: inline-block; font-size: .8rem; color: var(--blue-dark); background: var(--blue-soft); border: 1px dashed var(--blue-line); border-radius: 6px; padding: .3rem .7rem; }
+  .role { border-left: 3px solid var(--blue-line); padding: .1rem 0 .1rem .9rem; margin: .9rem 0; }
+  .role h3 { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; color: var(--blue-dark); margin: 0 0 .3rem; }
+  .role p, .role ul { margin: .25rem 0; }
+  .round-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: .8rem; }
+  .round-head h2 { margin: 0; }
+  details summary { cursor: pointer; color: var(--blue); font-weight: 600; }
+  pre { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: 8px; overflow-x: auto; font-size: .8rem; }
 </style>
 </head>
 <body>
-<p><a href="{{ url_for('index') }}">Exhibition sales CRM</a></p>
+<header>
+  <div class="bar">
+    <a class="brand" href="{{ url_for('search') }}">Exhibition Sales <span>CRM</span></a>
+    <nav>
+      <a href="{{ url_for('search') }}" class="{{ 'active' if request.endpoint in ('search', 'company', 'opportunity', 'show_assistant_run') }}">Exhibitors</a>
+      <a href="{{ url_for('follow_ups') }}" class="{{ 'active' if request.endpoint == 'follow_ups' }}">Follow-ups</a>
+    </nav>
+  </div>
+</header>
+<main>
 {% block content %}{% endblock %}
+</main>
 </body>
 </html>

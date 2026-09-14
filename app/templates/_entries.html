@@ -1,0 +1,38 @@
+{# The follow-up cell: its date and state, and a "Mark done" button while it is still open. #}
+{% macro follow_up(e, back) %}
+  {% set open_task = e.activity_type == 'task' and e.completed is sameas false %}
+  {% if e.follow_up_on and e.follow_up_done_at %}
+    <span class="muted">Done {{ e.follow_up_done_at.strftime('%d/%m/%Y') }}</span>
+  {% elif e.follow_up_on %}
+    <span class="nowrap {{ 'overdue' if e.overdue }}">{{ e.follow_up_on.strftime('%d/%m/%Y') }}{% if e.overdue %} · overdue{% endif %}</span>
+  {% elif open_task %}
+    <span class="muted">Open task, no date</span>
+  {% else %}
+    <span class="muted">–</span>
+  {% endif %}
+  {% if (e.follow_up_on and not e.follow_up_done_at) or open_task %}
+    <form class="inline" method="post" action="{{ url_for('mark_entry_done', entry_id=e.entry_id) }}">
+      <input type="hidden" name="back" value="{{ back }}">
+      <button class="btn small secondary">Mark done</button>
+    </form>
+  {% endif %}
+{% endmacro %}
+
+{# A table of logged entries: calls, emails, meetings, notes and tasks. #}
+{% macro entry_table(entries, back) %}
+<table>
+  <thead><tr><th>When</th><th>Type</th><th>What happened</th><th>Follow-up</th></tr></thead>
+  <tbody>
+  {% for e in entries %}
+    <tr>
+      <td class="nowrap">{{ e.occurred_at.strftime('%d/%m/%Y %H:%M') }}</td>
+      <td><span class="badge neutral">{{ e.activity_type }}</span></td>
+      <td>{{ e.details }}<div class="muted">{{ e.author }}</div></td>
+      <td>{{ follow_up(e, back) }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" class="muted">No entries yet.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endmacro %}

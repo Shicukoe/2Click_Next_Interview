@@ -15,6 +15,9 @@ RUN uv sync --locked --no-dev
 COPY data ./data
 COPY app ./app
 
+# Self-checks for the value parsers and the handoff assistant: a broken rule fails the build.
+RUN python -m app.parse && python -m app.assistant
+
 RUN useradd --system --create-home crm
 USER crm
 

@@ -1,29 +1,25 @@
-import json
+"""Web pages: one function per URL. Validation happens here; SQL lives in queries.py."""
+
+from datetime import date
 from decimal import Decimal, InvalidOperation
+from itertools import groupby
+import json
+from urllib.parse import urlsplit
 
 from flask import Flask, abort, redirect, render_template, request, url_for
 
-from app import assistant
+from app import assistant, queries
 from app.db import connect
 
 app = Flask(__name__)
 
 # Brief fields sales can edit, with the largest value each column can hold.
-EDITABLE = {
+AMOUNT_LIMITS = {
     "client_budget_eur": Decimal("9999999999.99"),
     "stand_area_sqm": Decimal("999999.99"),
     "requested_height_m": Decimal("999.99"),
 }
-
-DETAIL_SQL = """
-SELECT o.*, c.company_name, c.region, t.first_name || ' ' || t.last_name AS contact_name,
-       e.fair_name, e.city, e.starts_on, e.ends_on, e.max_stand_height_m
-FROM opportunities o
-JOIN companies c ON c.company_code = o.company_code
-JOIN fair_editions e ON e.fair_edition_code = o.fair_edition_code
-LEFT JOIN contacts t ON t.contact_code = o.contact_code
-WHERE o.opportunity_code = %s
-"""
+MAX_DETAILS = 2000
 
 
 def parse_amount(raw, largest):
@@ -37,55 +33,136 @@ def parse_amount(raw, largest):
     return value.quantize(Decimal("0.01"))
 
 
-def opportunity_page(code, error=None, status=200):
-    with connect() as conn:
-        opp = conn.execute(DETAIL_SQL, (code,)).fetchone()
-        if opp is None:
-            abort(404)
-        activity = conn.execute(
-            "SELECT occurred_at, activity_type, details, follow_up_on FROM activities"
-            " WHERE opportunity_code = %s ORDER BY occurred_at DESC, entry_id DESC", (code,)
-        ).fetchall()
-        runs = conn.execute(
-            "SELECT run_number, created_at, outcome, reason FROM assistant_runs"
-            " WHERE opportunity_code = %s ORDER BY run_number DESC", (code,)
-        ).fetchall()
-    stale = bool(runs) and opp["updated_at"] is not None and opp["updated_at"] > runs[0]["created_at"]
-    return render_template("opportunity.html", opp=opp, activity=activity, runs=runs, stale=stale, error=error), status
+def same_site(path, fallback):
+    """Only redirect back to a path on this site.
 
+    urlsplit drops tabs and newlines the way browsers do, so "/\\t/evil.example" is seen as the other site it is.
+    """
+    parts = urlsplit(path)
+    local = path.startswith("/") and not parts.scheme and not parts.netloc and "\\" not in path
+    return path if local else fallback
+
+
+# ── Search and companies ──────────────────────────────────────────────────────
 
 @app.get("/")
-def index():
-    code = request.args.get("code", "").strip().upper()
-    if code:
-        return redirect(url_for("opportunity", code=code))
-    return render_template("index.html")
+def search():
+    text = request.args.get("q", "").strip()
+    companies = contacts = message = None
+    if text:
+        with connect() as conn:
+            if queries.opportunity_exists(conn, text.upper()):
+                return redirect(url_for("opportunity", code=text.upper()))
+            if len(text) < 3:
+                message = "Type at least 3 characters, or a full code."
+            else:
+                companies, contacts = queries.search(conn, text)
+    return render_template("search.html", q=text, companies=companies, contacts=contacts, message=message,
+                           limit=queries.RESULT_LIMIT)
+
+
+@app.get("/companies/<code>")
+def company(code):
+    with connect() as conn:
+        found = queries.company(conn, code)
+        if found is None:
+            abort(404)
+        contacts = queries.contacts_of(conn, code)
+        opportunities = queries.opportunities_of(conn, code)
+        entries = queries.company_level_entries(conn, code)
+    editions = [list(group) for _, group in groupby(opportunities, key=lambda o: o["fair_edition_code"])]
+    return render_template("company.html", company=found, contacts=contacts, editions=editions, entries=entries)
+
+
+# ── Opportunities ─────────────────────────────────────────────────────────────
+
+def render_opportunity(code, error=None, status=200):
+    with connect() as conn:
+        opp = queries.opportunity(conn, code)
+        if opp is None:
+            abort(404)
+        entries = queries.entries_of_opportunity(conn, code)
+        company_entries = queries.company_level_entries(conn, opp["company_code"])
+        runs = queries.runs_of(conn, code)
+        statuses = queries.statuses(conn)
+    # The last run is out of date if the brief was edited or an entry was logged after it.
+    stale = bool(runs) and opp["last_change"] is not None and opp["last_change"] > runs[0]["created_at"]
+    return render_template("opportunity.html", opp=opp, entries=entries, company_entries=company_entries,
+                           runs=runs, statuses=statuses, stale=stale, error=error,
+                           activity_types=queries.ACTIVITY_TYPES), status
 
 
 @app.get("/opportunities/<code>")
 def opportunity(code):
-    return opportunity_page(code)
+    return render_opportunity(code)
 
 
 @app.post("/opportunities/<code>")
-def update_brief(code):
+def update_opportunity(code):
     try:
-        values = {field: parse_amount(request.form.get(field, ""), largest) for field, largest in EDITABLE.items()}
+        amounts = {field: parse_amount(request.form.get(field, ""), largest) for field, largest in AMOUNT_LIMITS.items()}
     except (ValueError, InvalidOperation):
-        return opportunity_page(code, "Budget, area and height must be positive numbers, or empty when unknown.", 400)
+        return render_opportunity(code, "Budget, area and height must be positive numbers, or empty when unknown.", 400)
     notes = request.form.get("brief_notes", "").strip()
     if not notes:
-        return opportunity_page(code, "Brief notes cannot be empty.", 400)
+        return render_opportunity(code, "Brief notes cannot be empty.", 400)
+    status = request.form.get("status", "")
     with connect() as conn:
-        updated = conn.execute(
-            "UPDATE opportunities SET client_budget_eur = %s, stand_area_sqm = %s, requested_height_m = %s,"
-            " brief_notes = %s, updated_at = now() WHERE opportunity_code = %s",
-            (values["client_budget_eur"], values["stand_area_sqm"], values["requested_height_m"], notes, code),
-        ).rowcount
-    if not updated:
-        abort(404)
+        if status not in queries.statuses(conn):
+            return render_opportunity(code, "Choose one of the listed statuses.", 400)
+        if not queries.update_opportunity(conn, code, status, notes, amounts):
+            abort(404)
     return redirect(url_for("opportunity", code=code))
 
+
+@app.post("/opportunities/<code>/entries")
+def record_entry(code):
+    activity_type = request.form.get("activity_type", "")
+    details = request.form.get("details", "").strip()
+    if activity_type not in queries.ACTIVITY_TYPES or not details or len(details) > MAX_DETAILS:
+        return render_opportunity(code, f"Choose a type and describe what happened (up to {MAX_DETAILS:,} characters).", 400)
+    raw_date = request.form.get("follow_up_on", "").strip()
+    try:
+        follow_up_on = date.fromisoformat(raw_date) if raw_date else None
+    except ValueError:
+        return render_opportunity(code, "The follow-up date is not a valid date.", 400)
+    with connect() as conn:
+        if not queries.add_entry(conn, code, activity_type, details, follow_up_on):
+            abort(404)
+    return redirect(url_for("opportunity", code=code) + "#entries")
+
+
+# ── Follow-ups ────────────────────────────────────────────────────────────────
+
+@app.get("/follow-ups")
+def follow_ups():
+    tab = request.args.get("tab", "today")
+    if tab not in queries.FOLLOW_UP_TABS:
+        tab = "today"
+    rep = request.args.get("rep", "")
+    try:  # "Due on": one day's follow-ups, so any date is findable even when its tab is past the row limit
+        day = date.fromisoformat(request.args.get("day", ""))
+    except ValueError:
+        day = None
+    with connect() as conn:
+        reps = queries.sales_reps(conn)
+        if rep not in reps:
+            rep = ""
+        rows, counts = queries.open_follow_ups(conn, tab, rep, day)
+        export_date = queries.export_date(conn)
+    return render_template("follow_ups.html", rows=rows, counts=counts, tab=tab, rep=rep, reps=reps, day=day,
+                           export_date=export_date, limit=queries.FOLLOW_UP_LIMIT)
+
+
+@app.post("/entries/<entry_id>/done")
+def mark_entry_done(entry_id):
+    with connect() as conn:
+        if not queries.mark_done(conn, entry_id):
+            abort(404)
+    return redirect(same_site(request.form.get("back", ""), url_for("follow_ups")))
+
+
+# ── Handoff assistant ─────────────────────────────────────────────────────────
 
 @app.post("/opportunities/<code>/handoff")
 def run_handoff_assistant(code):
@@ -100,10 +177,8 @@ def run_handoff_assistant(code):
 @app.get("/opportunities/<code>/runs/<int:number>")
 def show_assistant_run(code, number):
     with connect() as conn:
-        run = conn.execute(
-            "SELECT * FROM assistant_runs WHERE opportunity_code = %s AND run_number = %s", (code, number)
-        ).fetchone()
-    if run is None:
+        found = queries.run(conn, code, number)
+    if found is None:
         abort(404)
-    snapshot = json.dumps(run["input_snapshot"], indent=2, ensure_ascii=False)
-    return render_template("run.html", run=run, snapshot=snapshot)
+    snapshot = json.dumps(found["input_snapshot"], indent=2, ensure_ascii=False)
+    return render_template("run.html", run=found, snapshot=snapshot)

@@ -1,57 +1,104 @@
 {% extends "base.html" %}
-{% block title %}{{ opp.opportunity_code }}{% endblock %}
+{% from "_entries.html" import entry_table %}
+{% block title %}{{ opp.opportunity_code }} · Exhibition Sales CRM{% endblock %}
 {% block content %}
-<h1>{{ opp.opportunity_code }} · {{ opp.company_name }}</h1>
-<p>{{ opp.description }}</p>
-{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% set here = url_for('opportunity', code=opp.opportunity_code) %}
+<div class="crumb"><a href="{{ url_for('search') }}">Exhibitors</a> / <a href="{{ url_for('company', code=opp.company_code) }}">{{ opp.company_name }}</a> / {{ opp.opportunity_code }}</div>
+<h1>{{ opp.opportunity_code }} · {{ opp.description }}</h1>
+<p class="subtitle">{{ opp.fair_name }} {{ opp.starts_on.year }} · {{ opp.city }} · {{ opp.starts_on.strftime('%d/%m/%Y') }}–{{ opp.ends_on.strftime('%d/%m/%Y') }}</p>
 
-<table>
-  <tr><th>Fair edition</th><td>{{ opp.fair_name }} ({{ opp.fair_edition_code }}), {{ opp.city }},
-    {{ opp.starts_on.strftime('%d/%m/%Y') }}–{{ opp.ends_on.strftime('%d/%m/%Y') }}</td></tr>
-  <tr><th>Height limit</th><td>{{ opp.max_stand_height_m }} m</td></tr>
-  <tr><th>Status</th><td>{{ opp.status }}</td></tr>
-  <tr><th>Company</th><td>{{ opp.company_code }}, {{ opp.region }}</td></tr>
-  <tr><th>Contact</th><td>{{ opp.contact_name or 'not recorded' }}</td></tr>
-  <tr><th>Opportunity value</th><td>{{ opp.amount_eur }} EUR <span class="muted">sales' recorded value, not the client budget</span></td></tr>
-</table>
+{% if error %}<div class="alert error">{{ error }}</div>{% endif %}
 
-<h2>Brief</h2>
-<form method="post">
-  <label>Client budget (EUR) <input name="client_budget_eur" value="{{ opp.client_budget_eur if opp.client_budget_eur is not none else '' }}" inputmode="decimal"></label>
-  <label>Stand area (m²) <input name="stand_area_sqm" value="{{ opp.stand_area_sqm if opp.stand_area_sqm is not none else '' }}" inputmode="decimal"></label>
-  <label>Requested height (m) <input name="requested_height_m" value="{{ opp.requested_height_m if opp.requested_height_m is not none else '' }}" inputmode="decimal"></label>
-  <label>Brief notes <textarea name="brief_notes" rows="3" required>{{ opp.brief_notes }}</textarea></label>
-  <p class="muted">Leave a value empty when it is unknown.</p>
-  <button>Save brief</button>
-</form>
+<div class="grid">
+  <section class="card">
+    <h2>Enquiry</h2>
+    <dl class="facts">
+      <dt>Company</dt><dd><a href="{{ url_for('company', code=opp.company_code) }}">{{ opp.company_name }}</a> · {{ opp.region }}</dd>
+      <dt>Account owner</dt><dd>{{ opp.sales_rep }}</dd>
+      <dt>Contact</dt><dd>{% if opp.contact_name %}{{ opp.contact_name }}<div class="muted"><span class="nowrap">{{ opp.contact_email or 'no email' }}</span> · <span class="nowrap">{{ opp.contact_phone or 'no phone' }}</span></div>{% else %}<span class="muted">not recorded</span>{% endif %}</dd>
+      <dt>Fair edition</dt><dd>{{ opp.fair_edition_code }} · {{ opp.venue }}</dd>
+      <dt>Height limit</dt><dd>{{ opp.max_stand_height_m }} m</dd>
+      <dt>Opportunity value</dt><dd>{{ '{:,.2f}'.format(opp.amount_eur) }} EUR<div class="muted">sales' recorded value, not the client budget</div></dd>
+      <dt>Opened</dt><dd>{{ opp.opened_on.strftime('%d/%m/%Y') }}{% if opp.expected_close_on %} · decision expected {{ opp.expected_close_on.strftime('%d/%m/%Y') }}{% endif %}</dd>
+    </dl>
+  </section>
 
-<h2>Technical handoff</h2>
-{% if stale %}<p class="notice">The brief changed after the last assistant run. Run the assistant again.</p>{% endif %}
-<form method="post" action="{{ url_for('run_handoff_assistant', code=opp.opportunity_code) }}">
-  <button>Prepare technical handoff</button>
-</form>
-{% if runs %}
-<table>
-  <tr><th>Run</th><th>Outcome</th><th>Reason</th></tr>
-  {% for r in runs %}
-  <tr>
-    <td><a href="{{ url_for('show_assistant_run', code=opp.opportunity_code, number=r.run_number) }}">#{{ r.run_number }}</a><br>
-      <span class="muted">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</span></td>
-    <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
-    <td>{{ r.reason }}</td>
-  </tr>
-  {% endfor %}
-</table>
-{% endif %}
+  <section class="card">
+    <h2>Brief</h2>
+    <form method="post" action="{{ here }}">
+      <div class="fields">
+        <label>Status
+          <select name="status">
+            {% for s in statuses %}<option value="{{ s }}" {{ 'selected' if s == opp.status }}>{{ s }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Client budget (EUR)
+          <input name="client_budget_eur" inputmode="decimal" value="{{ opp.client_budget_eur if opp.client_budget_eur is not none }}">
+        </label>
+        <label>Stand area (m²)
+          <input name="stand_area_sqm" inputmode="decimal" value="{{ opp.stand_area_sqm if opp.stand_area_sqm is not none }}">
+        </label>
+        <label>Height (m) <span class="hint">· limit {{ opp.max_stand_height_m }}</span>
+          <input name="requested_height_m" inputmode="decimal" value="{{ opp.requested_height_m if opp.requested_height_m is not none }}">
+        </label>
+      </div>
+      <label>Brief notes
+        <textarea name="brief_notes" rows="3" required>{{ opp.brief_notes }}</textarea>
+      </label>
+      <button class="btn">Save brief</button> <span class="muted">Leave a value empty when it is unknown.</span>
+    </form>
+  </section>
+</div>
 
-<h2>Conversations for this enquiry</h2>
-<p class="muted">Only entries recorded against {{ opp.opportunity_code }}, so other editions never appear here.</p>
-<table>
-  {% for a in activity %}
-  <tr><td>{{ a.occurred_at.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ a.activity_type }}</td>
-    <td>{{ a.details }}{% if a.follow_up_on %}<br><span class="muted">follow up {{ a.follow_up_on.strftime('%d/%m/%Y') }}</span>{% endif %}</td></tr>
+<section class="card" style="margin-top: 1.1rem">
+  <div class="round-head">
+    <h2>Technical handoff</h2>
+    <form method="post" action="{{ url_for('run_handoff_assistant', code=opp.opportunity_code) }}">
+      <button class="btn">Prepare technical handoff</button>
+    </form>
+  </div>
+  {% if stale %}<div class="alert warn">The brief or the conversations changed after the last run. Run the assistant again.</div>{% endif %}
+  {% if runs %}
+  <table>
+    <thead><tr><th>Run</th><th>Outcome</th><th>Reason</th></tr></thead>
+    <tbody>
+    {% for r in runs %}
+      <tr>
+        <td class="nowrap"><a href="{{ url_for('show_assistant_run', code=opp.opportunity_code, number=r.run_number) }}">Run #{{ r.run_number }}</a><div class="muted">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</div></td>
+        <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
+        <td>{{ r.reason }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
   {% else %}
-  <tr><td>No entries yet.</td></tr>
-  {% endfor %}
-</table>
+  <p class="muted">The assistant checks whether this enquiry is ready for the technical team: ready, provisional or blocked.</p>
+  {% endif %}
+</section>
+
+<section class="card" id="entries">
+  <h2>This enquiry's conversations</h2>
+  <p class="muted">Only entries recorded against {{ opp.opportunity_code }}. Other enquiries and fair editions never appear here.</p>
+  <form method="post" action="{{ url_for('record_entry', code=opp.opportunity_code) }}">
+    <div class="fields">
+      <label>Type
+        <select name="activity_type">{% for t in activity_types %}<option>{{ t }}</option>{% endfor %}</select>
+      </label>
+      <label>Follow up on <span class="hint">optional</span>
+        <input type="date" name="follow_up_on">
+      </label>
+    </div>
+    <label>What happened
+      <textarea name="details" rows="2" maxlength="2000" required placeholder="e.g. Customer will confirm the floor area on Friday"></textarea>
+    </label>
+    <button class="btn">Log entry</button>
+  </form>
+  <div style="margin-top: 1rem">{{ entry_table(entries, here ~ '#entries') }}</div>
+</section>
+
+<section class="card">
+  <h2>Company-level notes</h2>
+  <p class="muted">About {{ opp.company_name }} in general, not this enquiry. Shown separately so an agreement from another edition is never mistaken for this one.</p>
+  {{ entry_table(company_entries, here) }}
+</section>
 {% endblock %}

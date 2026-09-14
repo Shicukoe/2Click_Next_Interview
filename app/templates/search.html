@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Find an exhibitor · Exhibition Sales CRM{% endblock %}
+{% block content %}
+<h1>Find an exhibitor or contact</h1>
+<p class="subtitle">Search by company name, contact name or email, or type a company, contact or opportunity code.</p>
+
+<form class="card searchbar" method="get" action="{{ url_for('search') }}">
+  <input name="q" value="{{ q }}" placeholder="e.g. Rivamare, Chris Conti, CO000001, OP000005" aria-label="Search" autofocus>
+  <button class="btn">Search</button>
+</form>
+
+{% if message %}<div class="alert info">{{ message }}</div>{% endif %}
+
+{% if companies is not none %}
+<div class="grid">
+  <section class="card">
+    <h2>Companies <span class="muted">{{ companies|length }}{% if companies|length == limit %}, showing the first {{ limit }}{% endif %}</span></h2>
+    <table>
+      <thead><tr><th>Company</th><th>Region</th><th>Sales rep</th><th>Enquiries</th></tr></thead>
+      <tbody>
+      {% for c in companies %}
+        <tr>
+          <td><a href="{{ url_for('company', code=c.company_code) }}">{{ c.company_name }}</a><div class="muted">{{ c.company_code }}</div></td>
+          <td>{{ c.region }}</td>
+          <td>{{ c.sales_rep }}</td>
+          <td>{{ c.enquiries }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="4" class="muted">No company matches.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Contacts <span class="muted">{{ contacts|length }}{% if contacts|length == limit %}, showing the first {{ limit }}{% endif %}</span></h2>
+    <table>
+      <thead><tr><th>Contact</th><th>Company</th></tr></thead>
+      <tbody>
+      {% for t in contacts %}
+        <tr>
+          <td>{{ t.first_name }} {{ t.last_name }}<div class="muted">{{ t.email or 'no email' }} · {{ t.phone or 'no phone' }}</div></td>
+          <td><a href="{{ url_for('company', code=t.company_code) }}">{{ t.company_name }}</a><div class="muted">{{ t.company_code }}</div></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="2" class="muted">No contact matches.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endif %}
+{% endblock %}

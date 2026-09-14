@@ -12,25 +12,17 @@ OUTCOME_LABEL = {
     policy.PROVISIONAL: "hand over provisionally",
     policy.BLOCKED: "keep with sales",
 }
-MISSING_LABEL = {"stand_area_sqm": "stand area", "requested_height_m": "requested height"}
-BLOCKING_LABEL = {
-    "DEAL_LOST": "the deal is lost",
-    "EDITION_OVER": "the fair edition has already ended",
-    "MISSING_BUDGET": "no client budget is recorded",
-    "HEIGHT_OVER_LIMIT": "the requested height is over the edition limit",
-}
-
-
 def _amount(value, unit):
     return f"{value:,.2f} {unit}" if value is not None else "not recorded"
 
 
+# Proposals and reasons reuse each finding's short summary, written by the Checker with the facts in hand.
 def _missing(findings):
-    return " and ".join(MISSING_LABEL[f["field"]] for f in findings if not f["blocks"])
+    return " and ".join(f["summary"] for f in findings if not f["blocks"])
 
 
 def _blocking(findings):
-    return "; ".join(BLOCKING_LABEL[f["code"]] for f in findings if f["blocks"])
+    return "; ".join(f["summary"] for f in findings if f["blocks"])
 
 
 def brief_summary(facts, activity):
@@ -46,11 +38,14 @@ def brief_summary(facts, activity):
 
 
 def finding_text(finding, facts):
+    """The full explanation of a finding, shown once in the Checker's output."""
     code, f = finding["code"], facts
     if code == "DEAL_LOST":
-        return "The deal is marked lost, so there is nothing to build."
+        return (f"{f['company_name']} did not go ahead with {f['opportunity_code']} for {f['fair_name']} "
+                f"{f['starts_on'].year}: its sales status is lost, so there is no stand to build.")
     if code == "EDITION_OVER":
-        return f"{f['fair_name']} {f['fair_edition_code']} ended on {f['ends_on']:%d/%m/%Y}."
+        return (f"{f['fair_name']} {f['starts_on'].year} ({f['fair_edition_code']}) ended on {f['ends_on']:%d/%m/%Y}, "
+                f"so a stand for it can no longer be built.")
     if code == "MISSING_BUDGET":
         return "The client has not stated a budget, so even the sales director's minimum for a handoff is not met."
     if code == "MISSING_HEIGHT":
@@ -59,6 +54,23 @@ def finding_text(finding, facts):
         return (f"The requested height of {f['requested_height_m']:.2f} m exceeds the {f['max_stand_height_m']:.2f} m "
                 f"limit for {f['fair_edition_code']}, and no exception is recorded.")
     return "The stand area is not recorded."  # MISSING_AREA
+
+
+def finding_summary(finding, facts):
+    """A short, named form of a finding, reused in the Preparer's proposal and the Coordinator's reason."""
+    code, f = finding["code"], facts
+    if code == "DEAL_LOST":
+        return f"{f['company_name']} did not go ahead with {f['opportunity_code']} (status lost)"
+    if code == "EDITION_OVER":
+        return f"{f['fair_name']} {f['starts_on'].year} already ended on {f['ends_on']:%d/%m/%Y}"
+    if code == "MISSING_BUDGET":
+        return f"{f['company_name']} has not stated a budget"
+    if code == "HEIGHT_OVER_LIMIT":
+        return (f"the requested {f['requested_height_m']:.2f} m is over the {f['max_stand_height_m']:.2f} m limit "
+                f"for {f['fair_name']} {f['starts_on'].year}")
+    if code == "MISSING_HEIGHT":
+        return "requested height"
+    return "stand area"  # MISSING_AREA
 
 
 def proposal_text(outcome, findings):

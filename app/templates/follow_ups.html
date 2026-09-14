@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Follow-ups · Exhibition Sales CRM{% endblock %}
+{% block content %}
+{% set labels = {'late': 'Late', 'today': 'Today', 'week': 'Next 7 days', 'later': 'Later', 'before_export': 'Before the export'} %}
+<h1>Follow-ups{% if rep %} for {{ rep }}{% endif %}</h1>
+<p class="subtitle">Who to call and what they're waiting for. A follow-up stays here until someone presses Mark done.</p>
+
+<section class="card toolbar">
+  <div class="tabs">
+    {% for key in labels %}
+      <a href="{{ url_for('follow_ups', tab=key, rep=rep) }}" class="{{ 'active' if tab == key and not day }}">{{ labels[key] }} · {{ counts[key] }}</a>
+    {% endfor %}
+  </div>
+  <form method="get" action="{{ url_for('follow_ups') }}">
+    <input type="hidden" name="tab" value="{{ tab }}">
+    <select name="rep" aria-label="Account owner">
+      <option value="">All account owners</option>
+      {% for r in reps %}<option {{ 'selected' if r == rep }}>{{ r }}</option>{% endfor %}
+    </select>
+    <input type="date" name="day" value="{{ day or '' }}" aria-label="Due on">
+    <button class="btn secondary">Show</button>
+  </form>
+</section>
+
+{% if day %}
+  <p class="muted">Due on {{ day.strftime('%d/%m/%Y') }}. Pick a tab to clear the date.</p>
+{% elif tab == 'late' %}
+  <p class="muted">The date has passed{% if export_date %} since the export on {{ export_date.strftime('%d/%m/%Y') }}{% endif %}. Most recent first.</p>
+{% elif tab == 'before_export' %}
+  <p class="muted">Dated before the archive was exported{% if export_date %} on {{ export_date.strftime('%d/%m/%Y') }}{% endif %}. The old system never recorded whether these were done, so they stay open until someone marks them done.</p>
+{% endif %}
+
+<section class="card">
+  <table>
+    <thead><tr><th>Due</th><th>Who to call</th><th>Waiting for</th><th></th></tr></thead>
+    <tbody>
+    {% for e in rows %}
+      <tr>
+        <td class="nowrap {{ 'overdue' if e.tab in ('late', 'before_export') }}">{{ e.follow_up_on.strftime('%d/%m/%Y') }}</td>
+        <td>
+          {% if e.contact_name %}<strong>{{ e.contact_name }}</strong> <span class="nowrap">{{ e.contact_phone or e.contact_email or 'no phone or email' }}</span>
+          {% else %}<span class="muted">No contact recorded</span>{% endif %}
+          <div class="muted">
+            <a href="{{ url_for('company', code=e.company_code) }}">{{ e.company_name }}</a> ·
+            {% if e.opportunity_code %}<a href="{{ url_for('opportunity', code=e.opportunity_code) }}">{{ e.opportunity_code }}</a>{% else %}company-level{% endif %}
+            {% if not rep %} · {{ e.sales_rep }}{% endif %}
+          </div>
+        </td>
+        <td>{{ e.details }}</td>
+        <td class="nowrap">
+          <form class="inline" method="post" action="{{ url_for('mark_entry_done', entry_id=e.entry_id) }}">
+            <input type="hidden" name="back" value="{{ request.full_path }}">
+            <button class="btn small secondary">Mark done</button>
+          </form>
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="4" class="muted">Nothing to follow up here.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if rows|length == limit %}<p class="muted">Showing the first {{ limit }}. Choose an account owner or a day to narrow the list.</p>{% endif %}
+</section>
+{% endblock %}

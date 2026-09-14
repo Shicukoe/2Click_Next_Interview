@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_entries.html" import entry_table %}
+{% block title %}{{ company.company_name }} · Exhibition Sales CRM{% endblock %}
+{% block content %}
+<div class="crumb"><a href="{{ url_for('search') }}">Exhibitors</a> / {{ company.company_code }}</div>
+<h1>{{ company.company_name }}</h1>
+<p class="subtitle">{{ company.company_code }} · {{ company.region }} ({{ company.province_code }}) · account owner {{ company.sales_rep }}{% if company.fax %} · fax {{ company.fax }}{% endif %}</p>
+
+<section class="card">
+  <h2>Enquiries by fair edition</h2>
+  <table>
+    <thead><tr><th>Enquiry</th><th>Status</th><th>Opportunity value</th><th>Client budget</th><th>Latest handoff</th></tr></thead>
+    <tbody>
+    {% for group in editions %}
+      {% set e = group[0] %}
+      <tr class="group"><td colspan="5">{{ e.fair_name }} {{ e.starts_on.year }}
+        <span class="muted">· {{ e.fair_edition_code }} · {{ e.city }} · {{ e.starts_on.strftime('%d/%m/%Y') }}–{{ e.ends_on.strftime('%d/%m/%Y') }}</span></td></tr>
+      {% for o in group %}
+        <tr>
+          <td><a href="{{ url_for('opportunity', code=o.opportunity_code) }}">{{ o.opportunity_code }}</a><div class="muted">{{ o.description }}</div></td>
+          <td>{{ o.status }}</td>
+          <td class="nowrap">{{ '{:,.2f}'.format(o.amount_eur) }} EUR</td>
+          <td class="nowrap">{{ '{:,.2f} EUR'.format(o.client_budget_eur) if o.client_budget_eur is not none else 'not recorded' }}</td>
+          <td>{% if o.latest_outcome %}<span class="badge {{ o.latest_outcome }}">{{ o.latest_outcome }}</span>{% else %}<span class="muted">not run</span>{% endif %}</td>
+        </tr>
+      {% endfor %}
+    {% else %}
+      <tr><td colspan="5" class="muted">No enquiries.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<div class="grid">
+  <section class="card">
+    <h2>Contacts</h2>
+    <table>
+      <thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead>
+      <tbody>
+      {% for t in contacts %}
+        <tr>
+          <td>{{ t.first_name }} {{ t.last_name }}<div class="muted nowrap">{{ t.contact_code }}</div></td>
+          <td>{{ t.email or '–' }}</td>
+          <td class="nowrap">{{ t.phone or '–' }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>Company-level notes</h2>
+    <p class="muted">About the company in general, not tied to any one enquiry or fair edition.</p>
+    {{ entry_table(entries, url_for('company', code=company.company_code)) }}
+  </section>
+</div>
+{% endblock %}

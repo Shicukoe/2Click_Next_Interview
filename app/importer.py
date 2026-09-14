@@ -1,7 +1,9 @@
 """Create the schema and load data/ on first start. Later starts change nothing."""
 
 import csv
+import json
 import os
+from datetime import datetime
 from pathlib import Path
 
 import psycopg
@@ -86,6 +88,15 @@ def load(cur):
     ))
 
 
+def archive_reference_time():
+    """When the export was taken, from manifest.json. Only groups old follow-ups on screen, so a missing
+    value must not stop the import: it gives None and every past follow-up is simply shown as late."""
+    try:
+        return datetime.fromisoformat(json.loads((DATA_DIR / "manifest.json").read_text())["reference_time"])
+    except (OSError, KeyError, TypeError, ValueError):
+        return None
+
+
 def main():
     # One transaction: if anything fails, nothing is kept and the next start tries again from scratch.
     with psycopg.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
@@ -94,11 +105,13 @@ def main():
             return
         cur.execute((APP_DIR / "schema.sql").read_text())
         load(cur)
-        cur.execute("INSERT INTO import_state DEFAULT VALUES")
+        reference_time = archive_reference_time()
+        cur.execute("INSERT INTO import_state (archive_reference_time) VALUES (%s)", (reference_time,))
         for table in ["companies", "contacts", "fair_editions", "opportunities", "activities"]:
             count = cur.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
             print(f"import: {table} {count}")
         print("import: not imported legacy_row_id (export row number), legacy_print_layout (obsolete)")
+        print(f"import: archive reference time {reference_time or 'not given in manifest.json'}")
 
 
 if __name__ == "__main__":
