@@ -754,11 +754,11 @@ def orchestration(complete):
     ok("checker", "round 1 finds the missing stand area and objects that the proposal ignores it")
     assert first["coordinator"]["decision"] == "continue"
     ok("coordinator", "an objection before round 3 → continue: the Preparer gets another round")
-    assert second["preparer"]["proposed_outcome"] == "provisional" and "revised" in second["preparer"]["basis"]
+    assert second["preparer"]["proposed_outcome"] == "partial" and "revised" in second["preparer"]["basis"]
     assert not second["checker"]["objections"]
-    assert second["coordinator"] == {"decision": "stop", "outcome": "provisional", "reason": second["coordinator"]["reason"]}
-    assert outcome == "provisional"
-    ok("preparer→checker→coordinator", "round 2: the Preparer revises to provisional, the Checker has no objection, "
+    assert second["coordinator"] == {"decision": "stop", "outcome": "partial", "reason": second["coordinator"]["reason"]}
+    assert outcome == "partial"
+    ok("preparer→checker→coordinator", "round 2: the Preparer revises to partial, the Checker has no objection, "
                                        "the Coordinator stops with that outcome")
 
     brief = assistant.preparer_write_brief(incomplete, [], None)
@@ -813,7 +813,7 @@ def checker_covers_each_request(complete):
         findings = assistant.checker_review(facts, brief)["findings"]
         assert [(f["code"], f["blocks"]) for f in findings] == [(code, blocks)], (code, findings)
         assert findings[0]["message"] and findings[0]["summary"]
-        effect = "blocks → blocked" if blocks else "does not block → provisional"
+        effect = "blocks → blocked" if blocks else "does not block → partial"
         ok("checker", f"{person} – {need}: without it → {code}, {effect}  «{findings[0]['summary']}»")
 
     with connect() as conn:
@@ -856,7 +856,7 @@ def decisions_through_the_web(o):
 
     cases = [  # name, brief change, outcome, rounds, text in the reason
         ("complete enquiry", {}, "ready", 1, "within the edition limit"),
-        ("incomplete: area and height unknown", {"stand_area_sqm": "", "requested_height_m": ""}, "provisional", 2,
+        ("incomplete: area and height unknown", {"stand_area_sqm": "", "requested_height_m": ""}, "partial", 2,
          "stand area and requested height"),
         ("conflict: height over the fair's limit", {"requested_height_m": str(limit + 1)}, "blocked", 2,
          f"{limit + 1:.2f} m is over the {limit:.2f} m limit"),

@@ -6,7 +6,7 @@ Rules only: no wording and no database access. Every assistant role reads the sa
 VERSION = "1"
 
 READY = "ready"              # hand over for full technical review
-PROVISIONAL = "provisional"  # hand over for a feasibility check only; some details are still missing
+PARTIAL = "partial"          # hand over part of the brief for a feasibility check; some details are still missing
 BLOCKED = "blocked"          # keep with sales
 
 
@@ -19,7 +19,7 @@ def evaluate(facts):
     """Findings against the fair's rules, the technical team's needs and the sales minimum.
 
     kind: gap (information missing), conflict (request breaks a fair rule), inactive (nothing to hand over).
-    blocks: True keeps the enquiry with sales; a non-blocking gap still allows a provisional handoff.
+    blocks: True keeps the enquiry with sales; a non-blocking gap still allows a partial handoff.
     """
     found = []
     if facts["status"] == "lost":
@@ -38,9 +38,9 @@ def evaluate(facts):
 
 
 def required_action(findings):
-    """The agreed policy: blocked if anything blocks, provisional if only details are missing, otherwise ready."""
+    """The agreed policy: blocked if anything blocks, partial if only details are missing, otherwise ready."""
     if any(f["blocks"] for f in findings):
         return BLOCKED
     if findings:
-        return PROVISIONAL
+        return PARTIAL
     return READY

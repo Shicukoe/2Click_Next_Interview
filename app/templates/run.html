@@ -36,7 +36,7 @@
     <h3>Checker finds</h3>
     {% if r.checker.findings %}
     <ul>{% for f in r.checker.findings %}
-      <li><span class="badge {{ 'blocked' if f.blocks else 'provisional' }}">{{ f.kind }}{{ ', blocks' if f.blocks }}</span> {{ f.message }}</li>
+      <li><span class="badge {{ 'blocked' if f.blocks else 'partial' }}">{{ f.kind }}{{ ', blocks' if f.blocks }}</span> {{ f.message }}</li>
     {% endfor %}</ul>
     {% else %}<p>No findings.</p>{% endif %}
     <p>{% if r.checker.objections %}<strong>Objection:</strong> {{ r.checker.objections|join(' ') }}{% else %}No objection to the proposal.{% endif %}</p>

@@ -80,7 +80,7 @@ CREATE TABLE assistant_runs (
     policy_version    text NOT NULL,
     input_snapshot    jsonb NOT NULL,  -- every tool call the Preparer made, with what it returned
     rounds            jsonb NOT NULL,  -- per round: the Preparer's brief, the Checker's findings, the Coordinator's decision
-    outcome           text NOT NULL CHECK (outcome IN ('ready', 'provisional', 'blocked')),
+    outcome           text NOT NULL CHECK (outcome IN ('ready', 'partial', 'blocked')),
     reason            text NOT NULL,
     PRIMARY KEY (opportunity_code, run_number)
 );

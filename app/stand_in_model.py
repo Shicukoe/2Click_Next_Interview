@@ -9,7 +9,7 @@ from app import policy
 
 OUTCOME_LABEL = {
     policy.READY: "hand over for full technical review",
-    policy.PROVISIONAL: "hand over provisionally",
+    policy.PARTIAL: "hand over part of the brief",
     policy.BLOCKED: "keep with sales",
 }
 def _amount(value, unit):
@@ -76,8 +76,8 @@ def finding_summary(finding, facts):
 def proposal_text(outcome, findings):
     if outcome == policy.READY:
         return "Hand over to the technical team for full review."
-    if outcome == policy.PROVISIONAL:
-        return f"Hand over provisionally for a feasibility check, and ask the customer for the {_missing(findings)}."
+    if outcome == policy.PARTIAL:
+        return f"Hand over the partial brief for a feasibility check, and ask the customer for the {_missing(findings)}."
     if not findings:
         return "Keep with sales until the client states a budget."
     return f"Keep with sales: {_blocking(findings)}."
@@ -90,7 +90,7 @@ def objection_text(proposed, required):
 def reason_text(outcome, findings):
     if outcome == policy.READY:
         return "Budget, stand area and requested height are recorded, and the height is within the edition limit."
-    if outcome == policy.PROVISIONAL:
+    if outcome == policy.PARTIAL:
         verb = "is" if sum(not f["blocks"] for f in findings) == 1 else "are"
         return f"The fair and budget are known; technical may check feasibility while the {_missing(findings)} {verb} confirmed."
     return f"Stays with sales: {_blocking(findings)}."

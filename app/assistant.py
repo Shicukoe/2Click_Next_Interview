@@ -157,8 +157,8 @@ if __name__ == "__main__":
             "today": date(2026, 9, 14)}
     cases = {  # change to the facts: (expected outcome, expected rounds)
         "complete": ({}, ("ready", 1)),
-        "area and height unknown": ({"stand_area_sqm": None, "requested_height_m": None}, ("provisional", 2)),
-        "height unknown": ({"requested_height_m": None}, ("provisional", 2)),
+        "area and height unknown": ({"stand_area_sqm": None, "requested_height_m": None}, ("partial", 2)),
+        "height unknown": ({"requested_height_m": None}, ("partial", 2)),
         "height over limit": ({"requested_height_m": D("6.00"), "max_stand_height_m": D("5.00")}, ("blocked", 2)),
         "no budget": ({"client_budget_eur": None}, ("blocked", 1)),
         "deal lost": ({"status": "lost"}, ("blocked", 2)),
