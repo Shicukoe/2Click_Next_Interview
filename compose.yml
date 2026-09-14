@@ -1,6 +1,11 @@
 services:
   app:
     build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://crm:local-development-only@db:5432/crm
     ports:
       - "3000:3000"
 

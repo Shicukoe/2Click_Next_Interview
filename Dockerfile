@@ -12,10 +12,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --locked --no-dev
 
+COPY data ./data
 COPY app ./app
 
 RUN useradd --system --create-home crm
 USER crm
 
 EXPOSE 3000
-CMD ["gunicorn", "--bind", "0.0.0.0:3000", "--access-logfile", "-", "app.main:app"]
+# Import runs once, in a single process, before any web worker starts.
+CMD ["sh", "-c", "python -m app.importer && exec gunicorn --bind 0.0.0.0:3000 --access-logfile - app.main:app"]
