@@ -48,6 +48,7 @@ CREATE TABLE opportunities (
     client_budget_eur         numeric(12,2),
     requested_height_m        numeric(5,2),            -- may exceed the edition limit
     brief_notes               text NOT NULL,
+    updated_at                timestamptz,             -- NULL until the brief is edited in the app
     UNIQUE (company_code, opportunity_code),
     -- the contact, when known, must work for the same company
     FOREIGN KEY (company_code, contact_code) REFERENCES contacts (company_code, contact_code)
@@ -65,6 +66,19 @@ CREATE TABLE activities (
     author            text NOT NULL,
     -- the opportunity, when set, must belong to the same company
     FOREIGN KEY (company_code, opportunity_code) REFERENCES opportunities (company_code, opportunity_code)
+);
+
+-- Every handoff-assistant run, kept forever: re-running adds a run, it never overwrites one.
+CREATE TABLE assistant_runs (
+    opportunity_code  text NOT NULL REFERENCES opportunities,
+    run_number        int NOT NULL,
+    created_at        timestamptz NOT NULL DEFAULT now(),
+    policy_version    text NOT NULL,
+    input_snapshot    jsonb NOT NULL,  -- every tool call the Preparer made, with what it returned
+    rounds            jsonb NOT NULL,  -- per round: the Preparer's brief, the Checker's findings, the Coordinator's decision
+    outcome           text NOT NULL CHECK (outcome IN ('ready', 'provisional', 'blocked')),
+    reason            text NOT NULL,
+    PRIMARY KEY (opportunity_code, run_number)
 );
 
 CREATE TABLE import_state (

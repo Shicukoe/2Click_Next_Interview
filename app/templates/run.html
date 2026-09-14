@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}{{ run.opportunity_code }} run #{{ run.run_number }}{% endblock %}
+{% block content %}
+<h1><a href="{{ url_for('opportunity', code=run.opportunity_code) }}">{{ run.opportunity_code }}</a> · assistant run #{{ run.run_number }}</h1>
+<p><span class="badge {{ run.outcome }}">{{ run.outcome }}</span> {{ run.reason }}</p>
+<p class="muted">{{ run.created_at.strftime('%d/%m/%Y %H:%M') }} · policy version {{ run.policy_version }} ·
+  role wording comes from a deterministic local stand-in model, not a language model.</p>
+
+{% for r in run.rounds %}
+<h2>Round {{ r.round }}</h2>
+
+<h3>Preparer</h3>
+<ul>{% for line in r.preparer.summary %}<li>{{ line }}</li>{% endfor %}</ul>
+<p><strong>Proposed next step:</strong> {{ r.preparer.proposal }} <span class="muted">({{ r.preparer.basis }})</span></p>
+
+<h3>Checker</h3>
+{% if r.checker.findings %}
+<ul>{% for f in r.checker.findings %}
+  <li><strong>{{ f.kind }}{% if f.blocks %}, blocks handoff{% endif %}:</strong> {{ f.message }}</li>
+{% endfor %}</ul>
+{% else %}<p>No findings.</p>{% endif %}
+<p><strong>{% if r.checker.objections %}Objection:</strong> {{ r.checker.objections | join(' ') }}{% else %}No objection</strong> to the proposal.{% endif %}</p>
+
+<h3>Coordinator</h3>
+<p><strong>{{ r.coordinator.decision }}{% if r.coordinator.outcome %} · {{ r.coordinator.outcome }}{% endif %}:</strong> {{ r.coordinator.reason }}</p>
+{% endfor %}
+
+<h2>Information used</h2>
+<p class="muted">Every lookup the Preparer made, with exactly what it returned.</p>
+<pre>{{ snapshot }}</pre>
+{% endblock %}

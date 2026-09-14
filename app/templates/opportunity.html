@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ opp.opportunity_code }}{% endblock %}
+{% block content %}
+<h1>{{ opp.opportunity_code }} · {{ opp.company_name }}</h1>
+<p>{{ opp.description }}</p>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+
+<table>
+  <tr><th>Fair edition</th><td>{{ opp.fair_name }} ({{ opp.fair_edition_code }}), {{ opp.city }},
+    {{ opp.starts_on.strftime('%d/%m/%Y') }}–{{ opp.ends_on.strftime('%d/%m/%Y') }}</td></tr>
+  <tr><th>Height limit</th><td>{{ opp.max_stand_height_m }} m</td></tr>
+  <tr><th>Status</th><td>{{ opp.status }}</td></tr>
+  <tr><th>Company</th><td>{{ opp.company_code }}, {{ opp.region }}</td></tr>
+  <tr><th>Contact</th><td>{{ opp.contact_name or 'not recorded' }}</td></tr>
+  <tr><th>Opportunity value</th><td>{{ opp.amount_eur }} EUR <span class="muted">sales' recorded value, not the client budget</span></td></tr>
+</table>
+
+<h2>Brief</h2>
+<form method="post">
+  <label>Client budget (EUR) <input name="client_budget_eur" value="{{ opp.client_budget_eur if opp.client_budget_eur is not none else '' }}" inputmode="decimal"></label>
+  <label>Stand area (m²) <input name="stand_area_sqm" value="{{ opp.stand_area_sqm if opp.stand_area_sqm is not none else '' }}" inputmode="decimal"></label>
+  <label>Requested height (m) <input name="requested_height_m" value="{{ opp.requested_height_m if opp.requested_height_m is not none else '' }}" inputmode="decimal"></label>
+  <label>Brief notes <textarea name="brief_notes" rows="3" required>{{ opp.brief_notes }}</textarea></label>
+  <p class="muted">Leave a value empty when it is unknown.</p>
+  <button>Save brief</button>
+</form>
+
+<h2>Technical handoff</h2>
+{% if stale %}<p class="notice">The brief changed after the last assistant run. Run the assistant again.</p>{% endif %}
+<form method="post" action="{{ url_for('run_handoff_assistant', code=opp.opportunity_code) }}">
+  <button>Prepare technical handoff</button>
+</form>
+{% if runs %}
+<table>
+  <tr><th>Run</th><th>Outcome</th><th>Reason</th></tr>
+  {% for r in runs %}
+  <tr>
+    <td><a href="{{ url_for('show_assistant_run', code=opp.opportunity_code, number=r.run_number) }}">#{{ r.run_number }}</a><br>
+      <span class="muted">{{ r.created_at.strftime('%d/%m/%Y %H:%M') }}</span></td>
+    <td><span class="badge {{ r.outcome }}">{{ r.outcome }}</span></td>
+    <td>{{ r.reason }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<h2>Conversations for this enquiry</h2>
+<p class="muted">Only entries recorded against {{ opp.opportunity_code }}, so other editions never appear here.</p>
+<table>
+  {% for a in activity %}
+  <tr><td>{{ a.occurred_at.strftime('%d/%m/%Y %H:%M') }}</td><td>{{ a.activity_type }}</td>
+    <td>{{ a.details }}{% if a.follow_up_on %}<br><span class="muted">follow up {{ a.follow_up_on.strftime('%d/%m/%Y') }}</span>{% endif %}</td></tr>
+  {% else %}
+  <tr><td>No entries yet.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}
