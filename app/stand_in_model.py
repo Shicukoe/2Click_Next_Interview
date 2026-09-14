@@ -29,7 +29,7 @@ def brief_summary(facts, activity):
     lines = [
         f"{facts['company_name']} wants a stand at {facts['fair_name']} ({facts['fair_edition_code']}, {facts['city']}, "
         f"{facts['starts_on']:%d/%m/%Y}–{facts['ends_on']:%d/%m/%Y}).",
-        f"Contact: {facts['contact_name'] or 'not recorded'}. Deal status: {facts['status']}.",
+        f"Contact: {facts['contact_name'] or 'not recorded'}. Opportunity status: {facts['status']}.",
         f"Client budget: {_amount(facts['client_budget_eur'], 'EUR')}. Stand area: {_amount(facts['stand_area_sqm'], 'm²')}. "
         f"Requested height: {_amount(facts['requested_height_m'], 'm')} (edition limit {facts['max_stand_height_m']:.2f} m).",
         f"Sales notes: {facts['brief_notes']}",
@@ -40,10 +40,10 @@ def brief_summary(facts, activity):
 def finding_text(finding, facts):
     """The full explanation of a finding, shown once in the Checker's output."""
     code, f = finding["code"], facts
-    if code == "DEAL_LOST":
+    if code == "OPPORTUNITY_LOST":
         return (f"{f['company_name']} did not go ahead with {f['opportunity_code']} for {f['fair_name']} "
                 f"{f['starts_on'].year}: its sales status is lost, so there is no stand to build.")
-    if code == "EDITION_OVER":
+    if code == "FAIR_EDITION_ENDED":
         return (f"{f['fair_name']} {f['starts_on'].year} ({f['fair_edition_code']}) ended on {f['ends_on']:%d/%m/%Y}, "
                 f"so a stand for it can no longer be built.")
     if code == "MISSING_BUDGET":
@@ -59,9 +59,9 @@ def finding_text(finding, facts):
 def finding_summary(finding, facts):
     """A short, named form of a finding, reused in the Preparer's proposal and the Coordinator's reason."""
     code, f = finding["code"], facts
-    if code == "DEAL_LOST":
+    if code == "OPPORTUNITY_LOST":
         return f"{f['company_name']} did not go ahead with {f['opportunity_code']} (status lost)"
-    if code == "EDITION_OVER":
+    if code == "FAIR_EDITION_ENDED":
         return f"{f['fair_name']} {f['starts_on'].year} already ended on {f['ends_on']:%d/%m/%Y}"
     if code == "MISSING_BUDGET":
         return f"{f['company_name']} has not stated a budget"

@@ -161,8 +161,8 @@ if __name__ == "__main__":
         "height unknown": ({"requested_height_m": None}, ("partial", 2)),
         "height over limit": ({"requested_height_m": D("6.00"), "max_stand_height_m": D("5.00")}, ("blocked", 2)),
         "no budget": ({"client_budget_eur": None}, ("blocked", 1)),
-        "deal lost": ({"status": "lost"}, ("blocked", 2)),
-        "edition over": ({"today": date(2027, 7, 1)}, ("blocked", 2)),
+        "opportunity lost": ({"status": "lost"}, ("blocked", 2)),
+        "fair edition ended": ({"today": date(2027, 7, 1)}, ("blocked", 2)),
     }
     for name, (change, expected) in cases.items():
         facts = base | change

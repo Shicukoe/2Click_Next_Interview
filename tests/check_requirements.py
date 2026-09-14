@@ -796,7 +796,7 @@ def checker_covers_each_request(complete):
     section("A3  Checker: the information each person asked for, per the handoff policy")
     brief = assistant.preparer_write_brief(complete, [], None)
     assert assistant.checker_review(complete, brief) == {"findings": [], "objections": []}
-    ok("checker", "complete brief (budget, area, height = the limit, open deal, edition not over): no findings")
+    ok("checker", "complete brief (budget, area, height = the limit, opportunity not lost, fair edition not ended): no findings")
 
     limit, ends = complete["max_stand_height_m"], complete["ends_on"]
     cases = [
@@ -805,8 +805,8 @@ def checker_covers_each_request(complete):
         ("technical coordinator", "the requested height is known", {"requested_height_m": None}, "MISSING_HEIGHT", False),
         ("technical coordinator", "the height is checked against the fair's limit",
          {"requested_height_m": limit + Decimal("0.01")}, "HEIGHT_OVER_LIMIT", True),
-        ("sales team", "the deal is still alive", {"status": "lost"}, "DEAL_LOST", True),
-        ("sales team", "the fair edition has not ended", {"today": ends + timedelta(days=1)}, "EDITION_OVER", True),
+        ("sales team", "the opportunity is not lost", {"status": "lost"}, "OPPORTUNITY_LOST", True),
+        ("sales team", "the fair edition has not ended", {"today": ends + timedelta(days=1)}, "FAIR_EDITION_ENDED", True),
     ]
     for person, need, change, code, blocks in cases:
         facts = complete | change
@@ -824,7 +824,7 @@ def checker_covers_each_request(complete):
 
     everything = complete | {"client_budget_eur": None, "stand_area_sqm": None, "requested_height_m": None, "status": "lost"}
     codes = [f["code"] for f in assistant.checker_review(everything, brief)["findings"]]
-    assert codes == ["DEAL_LOST", "MISSING_AREA", "MISSING_BUDGET", "MISSING_HEIGHT"], codes
+    assert codes == ["MISSING_AREA", "MISSING_BUDGET", "MISSING_HEIGHT", "OPPORTUNITY_LOST"], codes
     ok("checker", "several problems at once are all listed, in a fixed order")
 
     over = assistant.checker_review(complete | {"requested_height_m": Decimal("6.00"), "max_stand_height_m": Decimal("5.00")},
@@ -861,7 +861,7 @@ def decisions_through_the_web(o):
         ("conflict: height over the fair's limit", {"requested_height_m": str(limit + 1)}, "blocked", 2,
          f"{limit + 1:.2f} m is over the {limit:.2f} m limit"),
         ("sales minimum missing: no budget", {"client_budget_eur": ""}, "blocked", 1, "has not stated a budget"),
-        ("nothing to hand over: deal lost", {"status": "lost"}, "blocked", 2, f"did not go ahead with {o['code']}"),
+        ("nothing to hand over: opportunity lost", {"status": "lost"}, "blocked", 2, f"did not go ahead with {o['code']}"),
     ]
     first = None
     for name, change, outcome, n_rounds, reason in cases:
@@ -890,7 +890,7 @@ def decisions_through_the_web(o):
     saved, _ = run(ended["code"], {"status": ended["status"], "client_budget_eur": "50000", "stand_area_sqm": "60",
                                    "requested_height_m": str(ended["limit_m"]), "brief_notes": f"{MARK}: past edition"})
     assert saved["outcome"] == "blocked" and "already ended on" in saved["reason"], saved["reason"]
-    ok("decision", f"nothing to hand over: {ended['code']} is complete but its edition is over → blocked: «{saved['reason']}»")
+    ok("decision", f"nothing to hand over: {ended['code']} is complete but its fair edition ended → blocked: «{saved['reason']}»")
 
     with connect() as conn:
         again = one(conn, "SELECT outcome, input_snapshot, rounds, reason FROM assistant_runs"

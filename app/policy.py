@@ -23,9 +23,9 @@ def evaluate(facts):
     """
     found = []
     if facts["status"] == "lost":
-        found.append({"code": "DEAL_LOST", "kind": "inactive", "blocks": True, "field": "status"})
+        found.append({"code": "OPPORTUNITY_LOST", "kind": "inactive", "blocks": True, "field": "status"})
     if facts["ends_on"] < facts["today"]:
-        found.append({"code": "EDITION_OVER", "kind": "inactive", "blocks": True, "field": "ends_on"})
+        found.append({"code": "FAIR_EDITION_ENDED", "kind": "inactive", "blocks": True, "field": "ends_on"})
     if facts["client_budget_eur"] is None:
         found.append({"code": "MISSING_BUDGET", "kind": "gap", "blocks": True, "field": "client_budget_eur"})
     if facts["requested_height_m"] is None:
